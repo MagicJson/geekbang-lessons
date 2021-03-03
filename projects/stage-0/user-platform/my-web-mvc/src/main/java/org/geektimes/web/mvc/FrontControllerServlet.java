@@ -56,19 +56,19 @@ public class FrontControllerServlet extends HttpServlet {
         for (Controller controller : ServiceLoader.load(Controller.class)) {
             Class<?> controllerClass = controller.getClass();
             Path pathFromClass = controllerClass.getAnnotation(Path.class);
-            String requestPath = pathFromClass.value();
+            String requestPath = "";
             Method[] publicMethods = controllerClass.getMethods();
             // 处理方法支持的 HTTP 方法集合
             for (Method method : publicMethods) {
                 Set<String> supportedHttpMethods = findSupportedHttpMethods(method);
                 Path pathFromMethod = method.getAnnotation(Path.class);
                 if (pathFromMethod != null) {
-                    requestPath += pathFromMethod.value();
+                    requestPath = pathFromClass.value() + pathFromMethod.value();
+                    handleMethodInfoMapping.put(requestPath,
+                            new HandlerMethodInfo(requestPath, method, supportedHttpMethods));
                 }
-                handleMethodInfoMapping.put(requestPath,
-                        new HandlerMethodInfo(requestPath, method, supportedHttpMethods));
+                controllersMapping.put(requestPath, controller);
             }
-            controllersMapping.put(requestPath, controller);
         }
     }
 
@@ -133,9 +133,10 @@ public class FrontControllerServlet extends HttpServlet {
                         return;
                     }
 
+                    Method handleMethod = handlerMethodInfo.getHandlerMethod();
                     if (controller instanceof PageController) {
                         PageController pageController = PageController.class.cast(controller);
-                        String viewPath = pageController.execute(request, response);
+                        String viewPath = (String) handleMethod.invoke(pageController,request, response);
                         // 页面请求 forward
                         // request -> RequestDispatcher forward
                         // RequestDispatcher requestDispatcher = request.getRequestDispatcher(viewPath);
